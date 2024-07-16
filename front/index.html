@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <div id="prediction"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/9.6.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCPa0GJJNr9-FWt-elJp0mMD4VCqY5kpis",
+            authDomain: "gps-tracker-b45c6.firebaseapp.com",
+            databaseURL: "https://gps-tracker-b45c6-default-rtdb.firebaseio.com",
+            projectId: "gps-tracker-b45c6",
+            storageBucket: "gps-tracker-b45c6.appspot.com",
+            messagingSenderId: "431670772842",
+            appId: "1:431670772842:web:dd81d200793a736f9ab613",
+            measurementId: "G-DBP2X53H1H"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const database = getDatabase(app);
+
+        function fetchData() {
+            const mlFeaturesRef = ref(database, '/ML_features/-O19Mmr1yuHVhWVqgks7');
+            const timeDataRef = ref(database, 'Time_Data');
+
+            Promise.all([
+                new Promise((resolve) => {
+                    onValue(mlFeaturesRef, (snapshot) => {
+                        resolve(snapshot.val());
+                    });
+                }),
+                new Promise((resolve) => {
+                    onValue(timeDataRef, (snapshot) => {
+                        resolve(snapshot.val());
+                    });
+                })
+            ])
+            .then(([mlFeatures, timeData]) => {
+                console.log("ML Features from Firebase:", mlFeatures);
+                console.log("Time Data from Firebase:", timeData);
+                const combinedData = { mlFeatures, timeData };
+                sendToPredictionAPI(combinedData);
+            })
+            .catch((error) => {
+                console.error("Error fetching data:", error);
+            });
+        }
+
+        async function sendToPredictionAPI(data) {
+            try {
+                const response = await fetch('http://10.13.127.113:5000/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ input: data })
+                });
+
+                const result = await response.json();
+                displayPrediction(result);
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        function displayPrediction(data) {
+            // Ensure the element is available before setting innerText
+            const predictionElement = document.getElementById('prediction');
+            if (predictionElement) {
+                predictionElement.innerText = `Prediction: ${data.prediction}`;
+            } else {
+                console.error('Element with id "prediction" not found.');
+            }
+        }
+
+        window.onload = fetchData;
+
+    </script>
+</body>
+</html>
